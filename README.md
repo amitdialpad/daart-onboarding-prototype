@@ -1,5 +1,4 @@
-# Dialpad AI Agents - Onboarding Prototype - https://amitdialpad.github.io/daart-onboarding-prototype 
-
+# Dialpad AI Agents - End to end Prototype - https://amitdialpad.github.io/daart-onboarding-prototype 
 A fully functional prototype demonstrating an intuitive, workspace-based approach to building and deploying AI agents for customer conversations across voice and digital channels. 
 
 Based on the analysis of all the work that the DAART team has done uptil now - https://docs.google.com/document/d/1RGd-Y3AwwT1srBENvkVaA4ANqW1HieJt-OP8NGFkLfg/edit?usp=sharing 
