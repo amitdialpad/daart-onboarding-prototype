@@ -59,8 +59,9 @@
                       <div class="agent-dropdown-info">
                         <div class="agent-dropdown-name">{{ agent.name }}</div>
                         <div class="agent-dropdown-meta">
-                          {{ channelLabel(agent.channel) }}
-                          <span v-if="agent.channel === 'web-chat' && agent.smsEnabled" class="multi-channel-badge">+SMS</span>
+                          <span v-if="agent.channel === 'web-chat'" class="multi-channel-badge">Web Chat</span>
+                          <span v-else>{{ channelLabel(agent.channel) }}</span>
+                          <span v-if="agent.channel === 'web-chat' && agent.smsEnabled" class="multi-channel-badge">SMS</span>
                         </div>
                       </div>
                     </div>
@@ -79,8 +80,9 @@
                 </span>
                 <span class="meta-separator">·</span>
                 <span>
-                  {{ channelLabel(selectedAgent.channel) }}
-                  <span v-if="selectedAgent.channel === 'web-chat' && selectedAgent.smsEnabled" class="multi-channel-badge">+SMS</span>
+                  <span v-if="selectedAgent.channel === 'web-chat'" class="multi-channel-badge">Web Chat</span>
+                  <span v-else>{{ channelLabel(selectedAgent.channel) }}</span>
+                  <span v-if="selectedAgent.channel === 'web-chat' && selectedAgent.smsEnabled" class="multi-channel-badge">SMS</span>
                 </span>
                 <span class="meta-separator">·</span>
                 <span v-if="autoSaveStatus" class="auto-save-status" :class="autoSaveStatus">
@@ -2343,9 +2345,13 @@ const buildSections = computed(() => {
 
   sections.push(
     { id: 'knowledge', label: 'Knowledge Base' },
-    { id: 'skills', label: 'Skills' },
-    { id: 'flow', label: 'Conversation Flow' }
+    { id: 'skills', label: 'Skills' }
   )
+
+  // Conversation Flow is only for voice agents
+  if (primaryChannel.value === 'phone') {
+    sections.push({ id: 'flow', label: 'Conversation Flow' })
+  }
 
   return sections
 })
