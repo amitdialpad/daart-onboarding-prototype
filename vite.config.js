@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [vue()],
-  base: '/daart-onboarding-prototype/',
+  base: command === 'build' ? '/daart-onboarding-prototype/' : '/',
   server: {
     port: 3000
   }
-})
+}))

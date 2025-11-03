@@ -3,7 +3,10 @@
     <!-- Top Navigation -->
     <div class="top-nav">
       <div class="nav-left">
-        <div class="app-title">Dialpad Agents</div>
+        <div class="app-title">
+          Dialpad Agents
+          <a href="#" class="reset-demo-link" @click.prevent="resetDemo">Reset Demo</a>
+        </div>
       </div>
       <div class="nav-tabs">
         <button class="nav-tab active">AGENTS</button>
@@ -922,7 +925,8 @@
                           </div>
                         </div>
                         <div v-else class="knowledge-empty">
-                          No documents uploaded yet
+                          <div class="empty-title">No Knowledge Base Yet</div>
+                          <p class="empty-desc">Add documents to teach your agent about your business, products, and policies. This helps your agent provide accurate, relevant answers to customer questions.</p>
                         </div>
                       </div>
                     </div>
@@ -953,15 +957,16 @@
                         </div>
                       </div>
                       <div v-else class="skills-empty">
-                        No skills configured
+                        <div class="empty-title">No Skills Configured</div>
+                        <p class="empty-desc">Skills extend your agent's capabilities beyond answering questions. Add skills to perform actions like checking order status, booking appointments, or looking up account information.</p>
                       </div>
 
                       <button class="btn-add" @click="openSkillsBuilder">+ Add Skill</button>
                     </div>
                   </div>
 
-                  <!-- Conversation Flow Section -->
-                  <div id="flow" class="config-section build-section-anchor">
+                  <!-- Conversation Flow Section (Voice Agents Only) -->
+                  <div v-if="selectedAgent.agentType === 'phone'" id="flow" class="config-section build-section-anchor">
                     <h3>Voice Conversation Flow</h3>
                     <p class="section-desc">Create custom call flows with branching logic, menus, and prompts for phone interactions</p>
 
@@ -1180,19 +1185,40 @@
                     <div v-for="scenario in selectedAgent.testScenarios"
                          :key="scenario.id"
                          class="scenario-card"
-                         :class="{ running: runningTests[scenario.id] }">
+                         :class="{
+                           running: runningTests[scenario.id],
+                           passed: scenarioResults[scenario.id]?.passed,
+                           failed: scenarioResults[scenario.id] && !scenarioResults[scenario.id]?.passed
+                         }">
                       <div class="scenario-header">
                         <div class="scenario-name">{{ scenario.name }}</div>
                         <button class="btn-run"
+                                :class="{
+                                  'btn-passed': scenarioResults[scenario.id]?.passed,
+                                  'btn-failed': scenarioResults[scenario.id] && !scenarioResults[scenario.id]?.passed
+                                }"
                                 @click="runScenario(scenario)"
                                 :disabled="runningTests[scenario.id]">
-                          {{ runningTests[scenario.id] ? 'Running...' : (scenarioResults[scenario.id] ? '✓ Passed' : 'Run Test') }}
+                          <span v-if="runningTests[scenario.id]">Running...</span>
+                          <span v-else-if="scenarioResults[scenario.id]?.passed">✓ Passed</span>
+                          <span v-else-if="scenarioResults[scenario.id]">✗ Failed</span>
+                          <span v-else>Run Test</span>
                         </button>
                       </div>
                       <div class="scenario-prompt">Prompt: "{{ scenario.prompt }}"</div>
+                      <div v-if="scenario.expectedKeywords && scenario.expectedKeywords.length > 0" class="scenario-keywords">
+                        <span class="keywords-label">Expected keywords:</span>
+                        <span class="keyword-tag">{{ scenario.expectedKeywords.join(', ') }}</span>
+                      </div>
                       <div v-if="scenarioResults[scenario.id]" class="scenario-result">
                         <div class="result-label">Response:</div>
-                        <div class="result-text">{{ scenarioResults[scenario.id] }}</div>
+                        <div class="result-text">{{ scenarioResults[scenario.id].response }}</div>
+                        <div v-if="scenarioResults[scenario.id].matchedKeywords?.length > 0" class="keywords-matched">
+                          <span class="keywords-status">✓ Found:</span> {{ scenarioResults[scenario.id].matchedKeywords.join(', ') }}
+                        </div>
+                        <div v-if="scenarioResults[scenario.id].missingKeywords?.length > 0" class="keywords-missing">
+                          <span class="keywords-status">✗ Missing:</span> {{ scenarioResults[scenario.id].missingKeywords.join(', ') }}
+                        </div>
                       </div>
                       <div v-if="runningTests[scenario.id] && !scenarioResults[scenario.id]" class="scenario-loading">
                         <div class="loading-dots">
@@ -1206,8 +1232,9 @@
                   </div>
 
                   <div v-else class="scenarios-empty">
-                    <p>No test scenarios configured</p>
-                    <button class="btn-secondary">+ Add Scenario</button>
+                    <div class="empty-title">No Test Scenarios</div>
+                    <p class="empty-desc">Create test scenarios to validate your agent's responses before going live. Define expected keywords to automatically check if your agent is answering correctly.</p>
+                    <button class="btn-secondary" @click="openTestBuilder">+ Create First Test</button>
                   </div>
                 </div>
 
@@ -2001,6 +2028,80 @@
           </div>
         </div>
 
+        <!-- Publish Success Modal -->
+        <div v-if="showPublishSuccess" class="modal-overlay">
+          <div class="modal-dialog modal-lg success-modal" @click.stop>
+            <div class="modal-header success-header">
+              <h2>Agent Published Successfully!</h2>
+            </div>
+            <div class="modal-body">
+              <p class="success-intro">Your agent <strong>{{ selectedAgent?.name }}</strong> is now live and ready to handle customer interactions.</p>
+
+              <div class="next-steps-section">
+                <h3>Next Steps</h3>
+
+                <!-- Web Chat Integration -->
+                <div v-if="primaryChannel === 'web-chat'" class="step-card">
+                  <div class="step-number">1</div>
+                  <div class="step-content">
+                    <h4>Add Chat Widget to Your Website</h4>
+                    <p>Copy and paste this code snippet before the closing body tag on your website:</p>
+                    <div class="code-snippet">
+                      <pre>{{ '<script src="https://cdn.dialpad.com/widget.js"></script>\n<script>\n  DialpadAI.init({ agentId: "' + selectedAgent?.id + '" });\n</script>' }}</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SMS Configuration -->
+                <div v-if="selectedAgent?.smsEnabled" class="step-card">
+                  <div class="step-number">{{ primaryChannel === 'web-chat' ? '2' : '1' }}</div>
+                  <div class="step-content">
+                    <h4>SMS is Active</h4>
+                    <p>Your agent will automatically respond to text messages sent to:</p>
+                    <div class="phone-display">{{ selectedAgent?.smsConfig?.phoneNumber }}</div>
+                    <p class="step-note">Test it by sending a message to this number.</p>
+                  </div>
+                </div>
+
+                <!-- Voice Configuration -->
+                <div v-if="primaryChannel === 'phone'" class="step-card">
+                  <div class="step-number">1</div>
+                  <div class="step-content">
+                    <h4>Voice Agent is Live</h4>
+                    <p>Your voice agent is now handling calls on:</p>
+                    <div class="phone-display">{{ selectedAgent?.voiceConfig?.phoneNumber }}</div>
+                    <p class="step-note">Forward your business line to this number or share it with customers.</p>
+                  </div>
+                </div>
+
+                <!-- Monitor Performance -->
+                <div class="step-card">
+                  <div class="step-number">{{ getNextStepNumber() }}</div>
+                  <div class="step-content">
+                    <h4>Monitor Performance</h4>
+                    <p>Your live agent dashboard will show:</p>
+                    <ul class="monitor-list">
+                      <li>Real-time conversation history</li>
+                      <li>Deflection rates and metrics</li>
+                      <li>Response times</li>
+                      <li>Active channel performance</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="success-footer-note">
+                <strong>Pro Tip:</strong> You can make changes to your agent at any time. Just unpublish, make your edits, and republish when ready.
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-primary full-width" @click="closePublishSuccess">
+                Got it, thanks!
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -2311,6 +2412,7 @@ const activeTab = ref('build')
 
 // Deploy Checkout View (Full Screen)
 const deployCheckoutOpen = ref(false)
+const showPublishSuccess = ref(false)
 
 function openDeployCheckout() {
   deployCheckoutOpen.value = true
@@ -2829,11 +2931,73 @@ const scenarioResults = ref({})
 const runningTests = ref({})
 const runningAllTests = ref(false)
 
+// Helper function to generate realistic AI responses with varied keyword inclusion
+function generateTestResponse(prompt, expectedKeywords) {
+  // Define response templates that may or may not include all keywords
+  const responseTemplates = [
+    // Template that includes all keywords (60% chance)
+    () => {
+      const keywordPhrase = expectedKeywords.join(', ')
+      return `Great question! Based on our knowledge base, I can help with ${keywordPhrase}. Let me provide you with the details you need.`
+    },
+    // Template that includes some keywords (20% chance)
+    () => {
+      const randomKeywords = expectedKeywords.slice(0, Math.ceil(expectedKeywords.length / 2))
+      return `I can help with ${randomKeywords.join(' and ')}. Is there anything specific you'd like to know?`
+    },
+    // Template that includes no keywords (20% chance)
+    () => {
+      return `That's an interesting question. Let me think about how I can best assist you with that request.`
+    }
+  ]
+
+  // Weighted random selection
+  const rand = Math.random()
+  let selectedTemplate
+  if (rand < 0.6) {
+    selectedTemplate = responseTemplates[0]
+  } else if (rand < 0.8) {
+    selectedTemplate = responseTemplates[1]
+  } else {
+    selectedTemplate = responseTemplates[2]
+  }
+
+  return selectedTemplate()
+}
+
+// Helper function to validate if expected keywords are present in response
+function validateKeywords(response, expectedKeywords) {
+  const responseLower = response.toLowerCase()
+  const matchedKeywords = []
+  const missingKeywords = []
+
+  expectedKeywords.forEach(keyword => {
+    if (responseLower.includes(keyword.toLowerCase())) {
+      matchedKeywords.push(keyword)
+    } else {
+      missingKeywords.push(keyword)
+    }
+  })
+
+  const passed = missingKeywords.length === 0
+
+  return {
+    passed,
+    matchedKeywords,
+    missingKeywords
+  }
+}
+
 function runScenario(scenario) {
   runningTests.value[scenario.id] = true
   setTimeout(() => {
-    const response = `Great question! ${scenario.expectedKeywords.join(' and ')}.`
-    scenarioResults.value[scenario.id] = response
+    const response = generateTestResponse(scenario.prompt, scenario.expectedKeywords)
+    const validation = validateKeywords(response, scenario.expectedKeywords)
+
+    scenarioResults.value[scenario.id] = {
+      response,
+      ...validation
+    }
     runningTests.value[scenario.id] = false
 
     // Save scenario test to conversation history
@@ -2858,14 +3022,22 @@ function runAllTests() {
   selectedAgent.value.testScenarios.forEach((scenario, index) => {
     runningTests.value[scenario.id] = true
     setTimeout(() => {
-      scenarioResults.value[scenario.id] = `Great question! ${scenario.expectedKeywords.join(' and ')}.`
+      const response = generateTestResponse(scenario.prompt, scenario.expectedKeywords)
+      const validation = validateKeywords(response, scenario.expectedKeywords)
+
+      scenarioResults.value[scenario.id] = {
+        response,
+        ...validation
+      }
       runningTests.value[scenario.id] = false
 
       // Check if all tests are complete
       const allComplete = selectedAgent.value.testScenarios.every(s => scenarioResults.value[s.id])
       if (allComplete) {
         runningAllTests.value = false
-        showNotification('All tests completed successfully!')
+        const passedCount = selectedAgent.value.testScenarios.filter(s => scenarioResults.value[s.id]?.passed).length
+        const totalCount = selectedAgent.value.testScenarios.length
+        showNotification(`Tests completed: ${passedCount}/${totalCount} passed`)
       }
     }, 1000 + (index * 500))
   })
@@ -3049,14 +3221,28 @@ function publishAgent() {
     selectedAgent.value.hasBeenPublished = true
 
     saveAgents()
-    showNotification('Agent published successfully! Your agent is now live.')
 
     // Close the deploy checkout overlay
     closeDeployCheckout()
 
-    // Published agents show dashboard view (no tabs needed)
-    // The view will automatically switch to the published dashboard
+    // Show success modal with next steps
+    showPublishSuccess.value = true
   }
+}
+
+function closePublishSuccess() {
+  showPublishSuccess.value = false
+  // Switch to MONITOR tab to see the live agent
+  activeTab.value = 'monitor'
+}
+
+function getNextStepNumber() {
+  // Calculate the next step number based on which steps are shown
+  let stepNumber = 1
+  if (primaryChannel.value === 'web-chat') stepNumber++
+  if (selectedAgent.value?.smsEnabled) stepNumber++
+  if (primaryChannel.value === 'phone') stepNumber++
+  return stepNumber
 }
 
 function saveAgents() {
@@ -3065,6 +3251,13 @@ function saveAgents() {
 
 function goTo(path) {
   router.push(path)
+}
+
+function resetDemo() {
+  if (confirm('This will clear all demo data and reload the page. Continue?')) {
+    localStorage.clear()
+    window.location.reload()
+  }
 }
 
 // Profile Dropdown
@@ -3431,6 +3624,19 @@ function formatDate(isoString) {
 .app-title {
   font-weight: 600;
   font-size: 16px;
+}
+
+.reset-demo-link {
+  margin-left: 16px;
+  font-size: 13px;
+  color: #666;
+  text-decoration: none;
+  font-weight: normal;
+}
+
+.reset-demo-link:hover {
+  color: #333;
+  text-decoration: underline;
 }
 
 .nav-tabs {
@@ -3859,6 +4065,142 @@ function formatDate(isoString) {
 
 .modal-md {
   max-width: 580px;
+}
+
+.modal-lg {
+  max-width: 720px;
+}
+
+/* Success Modal */
+.success-modal {
+  max-width: 700px;
+}
+
+.success-header {
+  text-align: center;
+  border-bottom: none;
+  padding-bottom: 8px;
+}
+
+.success-intro {
+  text-align: center;
+  font-size: 15px;
+  color: #333;
+  margin-bottom: 32px;
+}
+
+.next-steps-section h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.step-card {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 16px;
+  border-radius: 4px;
+}
+
+.step-number {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  background: #000;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.step-content p {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.code-snippet {
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 12px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  overflow-x: auto;
+}
+
+.code-snippet pre {
+  margin: 0;
+  color: #333;
+  white-space: pre;
+  line-height: 1.5;
+}
+
+.code-snippet code {
+  color: #333;
+  white-space: pre;
+  display: block;
+}
+
+.phone-display {
+  font-size: 18px;
+  font-weight: 600;
+  color: #000;
+  padding: 8px 0;
+}
+
+.step-note {
+  font-size: 13px !important;
+  color: #666 !important;
+  font-style: italic;
+}
+
+.monitor-list {
+  margin: 12px 0 0 0;
+  padding-left: 20px;
+}
+
+.monitor-list li {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.success-footer-note {
+  margin-top: 24px;
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.success-footer-note strong {
+  font-weight: 600;
+}
+
+.full-width {
+  width: 100%;
 }
 
 .warning-text {
@@ -5641,8 +5983,23 @@ textarea.input-field {
 
 .knowledge-empty {
   text-align: center;
-  padding: 24px;
+  padding: 40px 24px;
   color: #666;
+}
+
+.knowledge-empty .empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 8px;
+}
+
+.knowledge-empty .empty-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #666;
+  max-width: 500px;
+  margin: 0 auto;
 }
 
 .skills-list {
@@ -5736,8 +6093,23 @@ textarea.input-field {
 
 .skills-empty {
   text-align: center;
-  padding: 24px;
+  padding: 40px 24px;
   color: #666;
+}
+
+.skills-empty .empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 8px;
+}
+
+.skills-empty .empty-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #666;
+  max-width: 500px;
+  margin: 0 auto;
 }
 
 .btn-add {
@@ -6611,8 +6983,18 @@ textarea.input-field {
 }
 
 .scenario-card.running {
-  border-color: #4285f4;
-  background: #f0f7ff;
+  border-color: #000;
+  background: #fafafa;
+}
+
+.scenario-card.passed {
+  border-color: #000;
+  background: #fafafa;
+}
+
+.scenario-card.failed {
+  border-color: #000;
+  background: #fafafa;
 }
 
 .scenario-header {
@@ -6640,10 +7022,51 @@ textarea.input-field {
   color: #fff;
 }
 
+.btn-run.btn-passed {
+  border-color: #000;
+  background: #000;
+  color: #fff;
+}
+
+.btn-run.btn-passed:hover {
+  background: #333;
+  border-color: #333;
+}
+
+.btn-run.btn-failed {
+  border-color: #000;
+  background: #fff;
+  color: #000;
+}
+
+.btn-run.btn-failed:hover {
+  background: #f0f0f0;
+  border-color: #000;
+}
+
 .scenario-prompt {
   font-size: 14px;
   color: #666;
   margin-bottom: 12px;
+}
+
+.scenario-keywords {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.keywords-label {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.keyword-tag {
+  color: #333;
+  font-style: italic;
 }
 
 .scenario-result {
@@ -6660,6 +7083,29 @@ textarea.input-field {
 
 .result-text {
   font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.keywords-matched,
+.keywords-missing {
+  font-size: 12px;
+  padding: 6px 10px;
+  margin-top: 8px;
+  background: #fafafa;
+  border: 1px solid #ddd;
+}
+
+.keywords-matched {
+
+}
+
+.keywords-missing {
+
+}
+
+.keywords-status {
+  font-weight: 600;
+  margin-right: 6px;
 }
 
 .scenario-loading {
@@ -6715,6 +7161,21 @@ textarea.input-field {
   text-align: center;
   padding: 60px 20px;
   color: #666;
+}
+
+.scenarios-empty .empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 8px;
+}
+
+.scenarios-empty .empty-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #666;
+  max-width: 500px;
+  margin: 0 auto 20px auto;
 }
 
 /* DEPLOY Tab */

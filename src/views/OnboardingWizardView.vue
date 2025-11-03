@@ -79,28 +79,145 @@
           <div v-for="template in filteredTemplates"
                :key="template.id"
                class="template-card"
-               :class="{ selected: selectedTemplate === template.id }"
-               @click="selectTemplate(template.id)">
-            <div class="template-header">
-              <div class="template-name">{{ template.name }}</div>
-              <div v-if="selectedTemplate === template.id" class="checkmark">✓</div>
+               :class="{ selected: selectedTemplate === template.id }">
+            <div @click="selectTemplate(template.id)">
+              <div class="template-header">
+                <div class="template-name">{{ template.name }}</div>
+                <div v-if="selectedTemplate === template.id" class="checkmark">✓</div>
+              </div>
+              <div class="template-desc">{{ template.description }}</div>
+
+              <!-- Metadata Display -->
+              <div class="template-metadata">
+                <div class="metadata-item">
+                  Knowledge: {{ getTemplateMetadata(template).knowledgeCount }} document{{ getTemplateMetadata(template).knowledgeCount !== 1 ? 's' : '' }} • {{ getTemplateMetadata(template).totalSize }} • {{ getTemplateMetadata(template).totalTopics }} topics
+                </div>
+                <div class="metadata-item">
+                  Skills: {{ getTemplateMetadata(template).skillsCount }} configured
+                </div>
+                <div class="metadata-item">
+                  Scenarios: {{ getTemplateMetadata(template).scenariosCount }} test scenario{{ getTemplateMetadata(template).scenariosCount !== 1 ? 's' : '' }}
+                </div>
+                <div class="metadata-item instructions-preview">
+                  Instructions: "{{ getInstructionsPreview(template) }}"
+                </div>
+              </div>
+
+              <div class="template-channels">
+                <span v-for="channel in template.channels" :key="channel" class="channel-badge">
+                  {{ channelLabel(channel) }}
+                </span>
+              </div>
             </div>
-            <div class="template-desc">{{ template.description }}</div>
-            <div class="template-channels">
-              <span v-for="channel in template.channels" :key="channel" class="channel-badge">
-                {{ channelLabel(channel) }}
-              </span>
-            </div>
+
+            <!-- Preview Button -->
+            <a href="#" class="preview-link" @click.prevent.stop="openPreview(template.id)">
+              Preview Details
+            </a>
           </div>
 
           <div class="template-card blank"
-               :class="{ selected: selectedTemplate === 'blank' }"
-               @click="selectTemplate('blank')">
-            <div class="template-header">
-              <div class="template-name">Start from Scratch</div>
-              <div v-if="selectedTemplate === 'blank'" class="checkmark">✓</div>
+               :class="{ selected: selectedTemplate === 'blank' }">
+            <div @click="selectTemplate('blank')">
+              <div class="template-header">
+                <div class="template-name">Start from Scratch</div>
+                <div v-if="selectedTemplate === 'blank'" class="checkmark">✓</div>
+              </div>
+              <div class="template-desc">Build your agent from the ground up</div>
+
+              <!-- Blank Template Metadata -->
+              <div class="template-metadata">
+                <div class="metadata-item">
+                  Knowledge: 0 documents
+                </div>
+                <div class="metadata-item">
+                  Skills: 0 configured
+                </div>
+                <div class="metadata-item">
+                  Scenarios: 0 test scenarios
+                </div>
+                <div class="metadata-item instructions-preview">
+                  You'll configure everything yourself: instructions, knowledge base, skills, and test scenarios.
+                </div>
+              </div>
             </div>
-            <div class="template-desc">Build your agent from the ground up</div>
+          </div>
+        </div>
+
+        <!-- Preview Modal -->
+        <div v-if="showPreviewModal" class="preview-modal-overlay" @click="closePreview">
+          <div class="preview-modal" @click.stop>
+            <div class="preview-modal-header">
+              <h2>{{ previewTemplate?.name }}</h2>
+              <button class="close-button" @click="closePreview">×</button>
+            </div>
+
+            <div class="preview-modal-body">
+              <!-- Instructions Section -->
+              <div class="preview-section">
+                <h3>Instructions</h3>
+                <div class="preview-content">
+                  {{ previewTemplate?.sampleAgent?.instructions }}
+                </div>
+              </div>
+
+              <!-- Knowledge Base Section -->
+              <div class="preview-section">
+                <h3>Knowledge Base ({{ previewTemplate?.sampleAgent?.knowledge?.length || 0 }} document{{ (previewTemplate?.sampleAgent?.knowledge?.length || 0) !== 1 ? 's' : '' }})</h3>
+                <div v-for="doc in previewTemplate?.sampleAgent?.knowledge" :key="doc.id" class="preview-knowledge-item">
+                  <div class="preview-knowledge-header">
+                    <strong>{{ doc.name }}</strong>
+                    <span class="preview-knowledge-meta">{{ doc.size }} • {{ doc.topics }} topics</span>
+                  </div>
+                  <div class="preview-content-snippet">
+                    {{ getContentPreview(doc.content) }}
+                  </div>
+                </div>
+                <div v-if="!previewTemplate?.sampleAgent?.knowledge?.length" class="preview-empty">
+                  No knowledge base documents included in this template.
+                </div>
+              </div>
+
+              <!-- Skills Section -->
+              <div class="preview-section">
+                <h3>Skills ({{ previewTemplate?.sampleAgent?.skills?.length || 0 }} configured)</h3>
+                <div v-for="skill in previewTemplate?.sampleAgent?.skills" :key="skill.id" class="preview-skill-item">
+                  <div class="preview-skill-header">
+                    <strong>{{ skill.name }}</strong>
+                    <span class="preview-skill-status">{{ skill.enabled ? 'Enabled' : 'Disabled' }}</span>
+                  </div>
+                  <div class="preview-skill-desc">{{ skill.description }}</div>
+                </div>
+                <div v-if="!previewTemplate?.sampleAgent?.skills?.length" class="preview-empty">
+                  No skills configured in this template.
+                </div>
+              </div>
+
+              <!-- Test Scenarios Section -->
+              <div class="preview-section">
+                <h3>Test Scenarios ({{ previewTemplate?.sampleAgent?.testScenarios?.length || 0 }})</h3>
+                <div v-for="scenario in previewTemplate?.sampleAgent?.testScenarios" :key="scenario.id" class="preview-scenario-item">
+                  <div class="preview-scenario-header">
+                    <strong>{{ scenario.name }}</strong>
+                  </div>
+                  <div class="preview-scenario-prompt">Prompt: "{{ scenario.prompt }}"</div>
+                  <div class="preview-scenario-keywords">
+                    Expected keywords: {{ scenario.expectedKeywords.join(', ') }}
+                  </div>
+                </div>
+                <div v-if="!previewTemplate?.sampleAgent?.testScenarios?.length" class="preview-empty">
+                  No test scenarios included in this template.
+                </div>
+              </div>
+            </div>
+
+            <div class="preview-modal-footer">
+              <p class="preview-note">You can customize everything after selection</p>
+              <div class="preview-modal-actions">
+                <button class="btn-secondary" @click="closePreview">Close</button>
+                <button class="btn-primary" @click="confirmTemplate(previewTemplateId)">Use This Template</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -200,6 +317,15 @@ const agentType = ref(null) // 'phone' or 'chat'
 const templates = agentTemplates
 const selectedTemplate = ref(null)
 
+// Preview modal state
+const showPreviewModal = ref(false)
+const previewTemplateId = ref(null)
+
+const previewTemplate = computed(() => {
+  if (!previewTemplateId.value) return null
+  return templates.find(t => t.id === previewTemplateId.value)
+})
+
 const filteredTemplates = computed(() => {
   if (!agentType.value) return templates
 
@@ -233,6 +359,60 @@ function channelLabel(channel) {
     'sms': 'SMS'
   }
   return labels[channel] || channel
+}
+
+// Template metadata and preview functions
+function getTemplateMetadata(template) {
+  const knowledge = template.sampleAgent?.knowledge || []
+  const skills = template.sampleAgent?.skills || []
+  const scenarios = template.sampleAgent?.testScenarios || []
+
+  // Calculate total size and topics
+  let totalSize = '0KB'
+  let totalTopics = 0
+
+  if (knowledge.length > 0) {
+    totalTopics = knowledge.reduce((sum, doc) => sum + (doc.topics || 0), 0)
+    // Use first doc's size as representative (in real app would sum all)
+    totalSize = knowledge[0].size || '0KB'
+  }
+
+  return {
+    knowledgeCount: knowledge.length,
+    skillsCount: skills.length,
+    scenariosCount: scenarios.length,
+    totalSize,
+    totalTopics
+  }
+}
+
+function getInstructionsPreview(template) {
+  const instructions = template.sampleAgent?.instructions || ''
+  const maxLength = 50
+  if (instructions.length <= maxLength) return instructions
+  return instructions.substring(0, maxLength) + '...'
+}
+
+function getContentPreview(content) {
+  const maxLength = 200
+  if (!content) return ''
+  if (content.length <= maxLength) return content
+  return content.substring(0, maxLength) + '...'
+}
+
+function openPreview(templateId) {
+  previewTemplateId.value = templateId
+  showPreviewModal.value = true
+}
+
+function closePreview() {
+  showPreviewModal.value = false
+  previewTemplateId.value = null
+}
+
+function confirmTemplate(templateId) {
+  selectTemplate(templateId)
+  closePreview()
 }
 
 // Agent customization
@@ -725,6 +905,218 @@ function goToWorkspace() {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
+}
+
+/* Template Metadata */
+.template-metadata {
+  margin: 16px 0 12px 0;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+.metadata-item {
+  font-size: 12px;
+  color: #333;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.metadata-item.instructions-preview {
+  margin-top: 8px;
+  color: #666;
+  font-style: italic;
+}
+
+.preview-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #333;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.preview-link:hover {
+  color: #000;
+}
+
+/* Preview Modal */
+.preview-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.preview-modal {
+  background: #fff;
+  border: 2px solid #000;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preview-modal-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-button:hover {
+  color: #000;
+}
+
+.preview-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.preview-section {
+  margin-bottom: 32px;
+}
+
+.preview-section:last-child {
+  margin-bottom: 0;
+}
+
+.preview-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.preview-content {
+  padding: 12px;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+}
+
+.preview-knowledge-item,
+.preview-skill-item,
+.preview-scenario-item {
+  padding: 12px;
+  border: 1px solid #ddd;
+  margin-bottom: 12px;
+  background: #fafafa;
+}
+
+.preview-knowledge-item:last-child,
+.preview-skill-item:last-child,
+.preview-scenario-item:last-child {
+  margin-bottom: 0;
+}
+
+.preview-knowledge-header,
+.preview-skill-header,
+.preview-scenario-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.preview-knowledge-header strong,
+.preview-skill-header strong,
+.preview-scenario-header strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.preview-knowledge-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+.preview-skill-status {
+  font-size: 12px;
+  color: #666;
+  padding: 2px 8px;
+  border: 1px solid #ddd;
+  background: #fff;
+}
+
+.preview-skill-desc,
+.preview-scenario-prompt,
+.preview-scenario-keywords {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.preview-scenario-prompt {
+  margin-bottom: 6px;
+}
+
+.preview-content-snippet {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.preview-empty {
+  font-size: 14px;
+  color: #999;
+  font-style: italic;
+  padding: 12px;
+  text-align: center;
+}
+
+.preview-modal-footer {
+  padding: 20px 24px;
+  border-top: 1px solid #ddd;
+  background: #fafafa;
+}
+
+.preview-note {
+  font-size: 13px;
+  color: #666;
+  margin: 0 0 16px 0;
+  text-align: center;
+}
+
+.preview-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 /* Form Section */
